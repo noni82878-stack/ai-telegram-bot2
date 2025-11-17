@@ -143,7 +143,6 @@ async def handle_other_messages(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text(response)
 
 def main():
-    """Запускает бота"""
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     
     # Добавляем обработчики команд
@@ -152,26 +151,16 @@ def main():
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("clear", clear_command))
     
-    # Обработчик для ТОЛЬКО текстовых сообщений
+    # Обработчик для ТОЛЬКО текстовых сообщений (исправленный)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     
-    # Обработчик для медиа С подписями
-    application.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO) & filters.CAPTION & ~filters.COMMAND, 
-        handle_media_with_caption
-    ))
-    
-    # Обработчик для медиа БЕЗ подписей
-    application.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO) & ~filters.CAPTION & ~filters.COMMAND, 
-        handle_media_without_caption
-    ))
-    
-    # Обработчик для документов
+    # Обработчик для документов (исправленный)
     application.add_handler(MessageHandler(
         filters.DOCUMENT & ~filters.COMMAND, 
         handle_media_without_caption
     ))
+    
+    # Остальные обработчики...
     
     # Обработчик для всего остального (стикеры, голосовые, локации и т.д.)
     application.add_handler(MessageHandler(

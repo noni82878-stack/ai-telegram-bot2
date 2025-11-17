@@ -78,7 +78,7 @@ class AIHandler:
             
             # Упрощенный запрос без проблемных параметров
             response = self.client.chat.completions.create(
-                model="grok-4-fast",  # Пробуем стабильную модель
+                model="gpt-4.1-nano",  # Пробуем стабильную модель
                 messages=messages,
                 max_tokens=120,  # Уменьшили длину ответа
                 temperature=0.7  # Убрали top_p

@@ -151,18 +151,28 @@ def main():
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("clear", clear_command))
     
-    # Обработчик для ТОЛЬКО текстовых сообщений (исправленный)
+    # Обработчик для текстовых сообщений (ИСПРАВЛЕНО)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     
-    # Обработчик для документов (исправленный)
+    # Обработчик для документов (ИСПРАВЛЕНО)
     application.add_handler(MessageHandler(
         filters.DOCUMENT & ~filters.COMMAND, 
         handle_media_without_caption
     ))
     
-    # Остальные обработчики...
+    # Обработчик для медиа С подписями (ИСПРАВЛЕНО)
+    application.add_handler(MessageHandler(
+        (filters.PHOTO | filters.VIDEO) & filters.CAPTION & ~filters.COMMAND, 
+        handle_media_with_caption
+    ))
     
-    # Обработчик для всего остального (стикеры, голосовые, локации и т.д.)
+    # Обработчик для медиа БЕЗ подписей (ИСПРАВЛЕНО)
+    application.add_handler(MessageHandler(
+        (filters.PHOTO | filters.VIDEO) & ~filters.CAPTION & ~filters.COMMAND, 
+        handle_media_without_caption
+    ))
+    
+    # Обработчик для всего остального
     application.add_handler(MessageHandler(
         ~filters.TEXT & ~filters.COMMAND & ~filters.PHOTO & ~filters.VIDEO & ~filters.DOCUMENT,
         handle_other_messages

@@ -67,3 +67,39 @@ class AIHandler:
             ]
             import random
             return random.choice(fallback_responses)
+        def generate_response(self, user_id: int, user_message: str) -> str:
+    """Генерирует ответ с учетом памяти и истории"""
+    # Проверяем что сообщение не пустое
+    if not user_message or not user_message.strip():
+        return "Привет! Я получила твое сообщение, но оно кажется пустым... Напиши что-нибудь! 😊"
+    
+    try:
+        # Остальной код без изменений...
+        user_memory = self.memory_manager.get_user_memory(user_id)
+        conversation_history = self.memory_manager.get_conversation_history(user_id)
+        
+        enhanced_system_prompt = self._build_enhanced_prompt(user_memory)
+        
+        messages = [{"role": "system", "content": enhanced_system_prompt}]
+        messages.extend(conversation_history[-6:])
+        messages.append({"role": "user", "content": user_message})
+        
+        response = self.client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=messages,
+            max_tokens=200,
+            temperature=0.8,
+        )
+        
+        ai_response = response.choices[0].message.content.strip()
+        
+        # Обновляем память и историю
+        self.memory_manager.add_to_history(user_id, user_message, ai_response)
+        self._update_user_memory_from_conversation(user_id, user_message, ai_response)
+        
+        logger.info(f"✅ Ответ для {user_id}: {ai_response[:50]}...")
+        return ai_response
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка NeuroAPI: {e}")
+        return self._get_fallback_response()

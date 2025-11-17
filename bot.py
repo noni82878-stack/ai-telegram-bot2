@@ -71,55 +71,77 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("💫 Наша история диалога очищена! Давай начнем заново!")
 
 # Обработчик текстовых сообщений
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает текстовые сообщения с помощью ИИ"""
-    user_message = update.message.text
+aasync def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает текстовые сообщения и медиа с подписями"""
+    # Получаем текст сообщения или подпись к медиа
+    user_message = update.message.text or update.message.caption
+    
+    # Если сообщение пустое (нет текста и нет подписи)
+    if not user_message:
+        await update.message.reply_text(
+            "Привет! Я понимаю только текстовые сообщения 😊\n"
+            "Напиши мне что-нибудь, и я с радостью отвечу!"
+        )
+        return
+    
     user_id = update.effective_user.id
     
-    logger.info(f"Сообщение от {user_id}: {user_message}")
+    logger.info(f"📨 Сообщение от {user_id}: {user_message}")
     
     # Показываем что бот печатает
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
     try:
-        # Получаем историю диалога
-        conversation_history = get_user_history(user_id)
-        
-        # Генерируем ответ через ИИ
-        ai_response = ai_handler.generate_response(user_message, conversation_history)
-        
-        # Сохраняем в историю
-        add_to_history(user_id, user_message, ai_response)
-        
-        # Отправляем ответ
+        # Генерируем ответ с учетом пользователя
+        ai_response = ai_handler.generate_response(user_id, user_message)
         await update.message.reply_text(ai_response)
         
     except Exception as e:
-        logger.error(f"Ошибка в handle_message: {e}")
+        logger.error(f"❌ Ошибка в handle_message: {e}")
         await update.message.reply_text("Упс, что-то пошло не так... Давай попробуем еще раз? 😅")
 
+async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает медиафайлы без текстовых подписей"""
+    media_responses = [
+        "Классное фото! 📸 Расскажи, что на нем?",
+        "Интересно! А что это? 😊",
+        "Красиво! Хочешь рассказать об этом?",
+        "Ух ты! А что здесь происходит? 🤔",
+        "Интересное изображение! О чём оно? 😄"
+    ]
+    
+    import random
+    response = random.choice(media_responses)
+    await update.message.reply_text(response)
+    
 # Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Логирует ошибки"""
     logger.error(f"Ошибка: {context.error}")
-
 def main():
-    """Запускает бота"""
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    # Добавляем обработчики
+    # Добавляем обработчики команд
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("help", start_command))
+    application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("clear", clear_command))
+    
+    # Обработчик текстовых сообщений
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    # Обработчик ошибок
-    application.add_error_handler(error_handler)
+    # Обработчик медиафайлов (фото, видео, документы) без подписей
+    application.add_handler(MessageHandler(
+        (filters.PHOTO | filters.VIDEO | filters.DOCUMENT) & ~filters.COMMAND, 
+        handle_media
+    ))
     
-    # Запускаем бота
-    print("🤖 Бот запускается с ИИ...")
+    # Обработчик для всего остального (стикеры, голосовые и т.д.)
+    application.add_handler(MessageHandler(
+        ~filters.TEXT & ~filters.COMMAND & ~filters.PHOTO & ~filters.VIDEO & ~filters.DOCUMENT,
+        handle_media
+    ))
+    
+    print("🤖 Бот запускается...")
     application.run_polling()
-    print("✅ Бот с ИИ работает!")
-
-if __name__ == '__main__':
-    main()
+    print("✅ Бот работает!")

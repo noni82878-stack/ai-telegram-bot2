@@ -39,6 +39,13 @@ if not NEUROAPI_KEY:
 """
     logger.error(error_msg)
     raise ValueError("NEUROAPI_KEY не установлен")
+import pkg_resources
+
+try:
+    version = pkg_resources.get_distribution("python-telegram-bot").version
+    print(f"📦 Версия python-telegram-bot: {version}")
+except Exception as e:
+    print(f"❌ Не удалось определить версию: {e}")
 
 # Логируем успешную загрузку (без показа самих ключей)
 logger.info("✅ TELEGRAM_BOT_TOKEN загружен успешно")

@@ -155,7 +155,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     
     # Обработчик для документов (ИСПРАВЛЕНО)
-    application.add_handler(MessageHandler(filters.DOCUMENT & ~filters.COMMAND, handle_media))
+    application.add_handler(MessageHandler(filters.ATTACHMENT & ~filters.COMMAND, handle_media))
     
     # Обработчик для медиа С подписями (ИСПРАВЛЕНО)
     application.add_handler(MessageHandler(
@@ -171,7 +171,7 @@ def main():
     
     # Обработчик для всего остального
     application.add_handler(MessageHandler(
-        ~filters.TEXT & ~filters.COMMAND & ~filters.PHOTO & ~filters.VIDEO & ~filters.DOCUMENT,
+        ~filters.TEXT & ~filters.COMMAND & ~filters.PHOTO & ~filters.VIDEO & ~filters.ATTACHMENT,
         handle_other_messages
     ))
     

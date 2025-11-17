@@ -14,111 +14,136 @@ logger = logging.getLogger(__name__)
 # Инициализируем ИИ-обработчик
 ai_handler = AIHandler()
 
-# Для хранения истории диалогов (временное решение)
-user_conversations = {}
-
-def get_user_history(user_id: int) -> list:
-    """Получает историю диалога для пользователя"""
-    if user_id not in user_conversations:
-        user_conversations[user_id] = []
-    return user_conversations[user_id]
-
-def add_to_history(user_id: int, user_message: str, ai_response: str):
-    """Добавляет сообщение в историю диалога"""
-    history = get_user_history(user_id)
-    
-    # Добавляем сообщение пользователя и ответ ИИ
-    history.append({"role": "user", "content": user_message})
-    history.append({"role": "assistant", "content": ai_response})
-    
-    # Ограничиваем историю последними 10 сообщениями
-    if len(history) > 10:
-        user_conversations[user_id] = history[-10:]
-
 # Обработчик команды /start
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = """
 👋 Привет! Я Аня - твой ИИ-собеседник.
 
-Давай пообщаемся! Расскажи мне что-нибудь о себе, или просто поздоровайся 😊
+Давай познакомимся поближе! Я люблю:
+🎨 Искусство и фотографию
+🎵 Музыку (играю на гитаре)
+✈️ Путешествия
+📚 Интересные беседы
 
-Не стесняйся писать обо всем - я люблю новые знакомства!
+Просто напиши мне что-нибудь, и я с радостью отвечу!
+
+Команды:
+/start - это сообщение
+/help - помощь
+/clear - очистить историю нашего разговора
+/about - обо мне
 """
     await update.message.reply_text(welcome_text)
 
-# Обработчик команды /help
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = """
-🤖 Помощь по боту:
+async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    about_text = """
+ℹ️ Обо мне:
 
-Просто напиши мне сообщение, и я отвечу!
+Я - Аня, ИИ-собеседник с характером и увлечениями. 
+Мне 25 лет, я из Санкт-Петербурга.
 
-Команды:
-/start - начать общение
-/help - эта справка
-/clear - очистить историю нашего диалога
+Мои интересы:
+• Живопись и современное искусство
+• Игра на гитаре (люблю инди-рок)
+• Путешествия (была в 15 странах)
+• Фотография и кулинария
 
-Пиши naturally, как в обычном чате!
+Я помню наши разговоры и стараюсь быть интересным собеседником!
 """
-    await update.message.reply_text(help_text)
+    await update.message.reply_text(about_text)
 
-# Обработчик команды /clear
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Очищает историю диалога"""
     user_id = update.effective_user.id
-    if user_id in user_conversations:
-        user_conversations[user_id] = []
-    await update.message.reply_text("💫 Наша история диалога очищена! Давай начнем заново!")
+    ai_handler.memory_manager.clear_history(user_id)
+    await update.message.reply_text("💫 Наша история диалога очищена! Начнем заново!")
 
-# Обработчик текстовых сообщений
-aasync def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает текстовые сообщения и медиа с подписями"""
-    # Получаем текст сообщения или подпись к медиа
-    user_message = update.message.text or update.message.caption
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает ТОЛЬКО текстовые сообщения"""
+    user_message = update.message.text
     
-    # Если сообщение пустое (нет текста и нет подписи)
-    if not user_message:
-        await update.message.reply_text(
-            "Привет! Я понимаю только текстовые сообщения 😊\n"
-            "Напиши мне что-нибудь, и я с радостью отвечу!"
-        )
+    # Дополнительная проверка на пустое сообщение
+    if not user_message or not user_message.strip():
+        logger.warning("Получено пустое текстовое сообщение")
+        await update.message.reply_text("Привет! Я получила твое сообщение, но оно кажется пустым... Напиши что-нибудь! 😊")
         return
     
     user_id = update.effective_user.id
     
-    logger.info(f"📨 Сообщение от {user_id}: {user_message}")
+    logger.info(f"📨 Текст от {user_id}: {user_message}")
     
     # Показываем что бот печатает
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
     try:
-        # Генерируем ответ с учетом пользователя
+        # Генерируем ответ
         ai_response = ai_handler.generate_response(user_id, user_message)
         await update.message.reply_text(ai_response)
         
     except Exception as e:
-        logger.error(f"❌ Ошибка в handle_message: {e}")
+        logger.error(f"❌ Ошибка в handle_text_message: {e}")
         await update.message.reply_text("Упс, что-то пошло не так... Давай попробуем еще раз? 😅")
 
-async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает медиафайлы без текстовых подписей"""
+async def handle_media_with_caption(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает медиафайлы С текстовыми подписями"""
+    user_message = update.message.caption
+    
+    if not user_message or not user_message.strip():
+        # Если подпись пустая, переходим к обработчику медиа без подписи
+        await handle_media_without_caption(update, context)
+        return
+    
+    user_id = update.effective_user.id
+    logger.info(f"📷 Медиа с подписью от {user_id}: {user_message}")
+    
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    
+    try:
+        ai_response = ai_handler.generate_response(user_id, user_message)
+        # Добавляем реакцию на медиа
+        media_responses = [
+            "Классное фото! 📸 ",
+            "Интересно! 🖼️ ",
+            "Красиво! 🌟 ",
+            "Ух ты! ✨ "
+        ]
+        import random
+        response = random.choice(media_responses) + ai_response
+        await update.message.reply_text(response)
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка в handle_media_with_caption: {e}")
+        await update.message.reply_text("Крутое изображение! Хочешь рассказать о нем? 😊")
+
+async def handle_media_without_caption(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает медиафайлы БЕЗ текстовых подписей"""
     media_responses = [
         "Классное фото! 📸 Расскажи, что на нем?",
-        "Интересно! А что это? 😊",
-        "Красиво! Хочешь рассказать об этом?",
-        "Ух ты! А что здесь происходит? 🤔",
-        "Интересное изображение! О чём оно? 😄"
+        "Интересное изображение! 🤔 О чём оно?",
+        "Красиво! 🌟 Хочешь поделиться историей?",
+        "Ух ты! ✨ А что это?",
+        "Мне нравится! 😊 Расскажешь подробнее?"
     ]
     
     import random
     response = random.choice(media_responses)
     await update.message.reply_text(response)
+
+async def handle_other_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает все остальные типы сообщений (стикеры, голосовые и т.д.)"""
+    other_responses = [
+        "Привет! Я понимаю только текстовые сообщения и фото с подписями 😊",
+        "Ой, я пока не умею работать с такими сообщениями... Напиши мне текст! 💫",
+        "Интересно! Но я лучше понимаю текстовые сообщения 😅",
+        "Круто! А теперь напиши мне что-нибудь текстом ✨"
+    ]
     
-# Обработчик ошибок
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Логирует ошибки"""
-    logger.error(f"Ошибка: {context.error}")
+    import random
+    response = random.choice(other_responses)
+    await update.message.reply_text(response)
+
 def main():
+    """Запускает бота"""
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     
     # Добавляем обработчики команд
@@ -127,21 +152,36 @@ def main():
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("clear", clear_command))
     
-    # Обработчик текстовых сообщений
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Обработчик для ТОЛЬКО текстовых сообщений
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     
-    # Обработчик медиафайлов (фото, видео, документы) без подписей
+    # Обработчик для медиа С подписями
     application.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO | filters.DOCUMENT) & ~filters.COMMAND, 
-        handle_media
+        (filters.PHOTO | filters.VIDEO) & filters.CAPTION & ~filters.COMMAND, 
+        handle_media_with_caption
     ))
     
-    # Обработчик для всего остального (стикеры, голосовые и т.д.)
+    # Обработчик для медиа БЕЗ подписей
+    application.add_handler(MessageHandler(
+        (filters.PHOTO | filters.VIDEO) & ~filters.CAPTION & ~filters.COMMAND, 
+        handle_media_without_caption
+    ))
+    
+    # Обработчик для документов
+    application.add_handler(MessageHandler(
+        filters.DOCUMENT & ~filters.COMMAND, 
+        handle_media_without_caption
+    ))
+    
+    # Обработчик для всего остального (стикеры, голосовые, локации и т.д.)
     application.add_handler(MessageHandler(
         ~filters.TEXT & ~filters.COMMAND & ~filters.PHOTO & ~filters.VIDEO & ~filters.DOCUMENT,
-        handle_media
+        handle_other_messages
     ))
     
     print("🤖 Бот запускается...")
     application.run_polling()
     print("✅ Бот работает!")
+
+if __name__ == '__main__':
+    main()

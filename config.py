@@ -6,7 +6,7 @@ load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 NEUROAPI_KEY = os.getenv('NEUROAPI_KEY')
-NEUROAPI_BASE_URL = "https://neuroapi.host/v1"  # Правильный URL из документации
+NEUROAPI_BASE_URL = "https://neuroapi.host/v1"
 
 # Проверка токенов
 if not TELEGRAM_TOKEN:

@@ -1,6 +1,6 @@
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes
 from config import TELEGRAM_TOKEN
 from ai_handler import AIHandler
 
@@ -11,11 +11,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Инициализируем ИИ-обработчик
 ai_handler = AIHandler()
 
-# Обработчик команды /start
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
     welcome_text = """
 👋 Привет! Я Аня - твой ИИ-собеседник.
 
@@ -35,7 +34,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     await update.message.reply_text(welcome_text)
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /help"""
+    await update.message.reply_text("Просто напиши мне сообщение, и я отвечу! 😊")
+
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /about"""
     about_text = """
 ℹ️ Обо мне:
 
@@ -53,7 +57,7 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(about_text)
 
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Очищает историю диалога"""
+    """Обработчик команды /clear - очищает историю диалога"""
     user_id = update.effective_user.id
     ai_handler.memory_manager.clear_history(user_id)
     await update.message.reply_text("💫 Наша история диалога очищена! Начнем заново!")
@@ -61,14 +65,11 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает ТОЛЬКО текстовые сообщения"""
     user_message = update.message.text
-    
-    # Дополнительная проверка на пустое сообщение
-    if not user_message or not user_message.strip():
-        logger.warning("Получено пустое текстовое сообщение")
-        await update.message.reply_text("Привет! Я получила твое сообщение, но оно кажется пустым... Напиши что-нибудь! 😊")
-        return
-    
     user_id = update.effective_user.id
+    
+    if not user_message or not user_message.strip():
+        await update.message.reply_text("Привет! Напиши что-нибудь текстом 😊")
+        return
     
     logger.info(f"📨 Текст от {user_id}: {user_message}")
     
@@ -84,45 +85,13 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.error(f"❌ Ошибка в handle_text_message: {e}")
         await update.message.reply_text("Упс, что-то пошло не так... Давай попробуем еще раз? 😅")
 
-async def handle_media_with_caption(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает медиафайлы С текстовыми подписями"""
-    user_message = update.message.caption
-    
-    if not user_message or not user_message.strip():
-        # Если подпись пустая, переходим к обработчику медиа без подписи
-        await handle_media_without_caption(update, context)
-        return
-    
-    user_id = update.effective_user.id
-    logger.info(f"📷 Медиа с подписью от {user_id}: {user_message}")
-    
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    
-    try:
-        ai_response = ai_handler.generate_response(user_id, user_message)
-        # Добавляем реакцию на медиа
-        media_responses = [
-            "Классное фото! 📸 ",
-            "Интересно! 🖼️ ",
-            "Красиво! 🌟 ",
-            "Ух ты! ✨ "
-        ]
-        import random
-        response = random.choice(media_responses) + ai_response
-        await update.message.reply_text(response)
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка в handle_media_with_caption: {e}")
-        await update.message.reply_text("Крутое изображение! Хочешь рассказать о нем? 😊")
-
-async def handle_media_without_caption(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает медиафайлы БЕЗ текстовых подписей"""
+async def handle_media_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает медиафайлы (фото, видео, документы)"""
     media_responses = [
-        "Классное фото! 📸 Расскажи, что на нем?",
-        "Интересное изображение! 🤔 О чём оно?",
-        "Красиво! 🌟 Хочешь поделиться историей?",
-        "Ух ты! ✨ А что это?",
-        "Мне нравится! 😊 Расскажешь подробнее?"
+        "Интересно! 📸 Но я лучше понимаю текстовые сообщения 😊",
+        "Классно! 🖼️ Напиши мне что-нибудь об этом текстом?",
+        "Ух ты! ✨ А теперь расскажи об этом словами?",
+        "Красиво! 🌟 Хочешь поделиться историей текстом?"
     ]
     
     import random
@@ -132,10 +101,9 @@ async def handle_media_without_caption(update: Update, context: ContextTypes.DEF
 async def handle_other_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает все остальные типы сообщений (стикеры, голосовые и т.д.)"""
     other_responses = [
-        "Привет! Я понимаю только текстовые сообщения и фото с подписями 😊",
+        "Привет! Я понимаю только текстовые сообщения и фото 😊",
         "Ой, я пока не умею работать с такими сообщениями... Напиши мне текст! 💫",
-        "Интересно! Но я лучше понимаю текстовые сообщения 😅",
-        "Круто! А теперь напиши мне что-нибудь текстом ✨"
+        "Интересно! Но я лучше понимаю текстовые сообщения 😅"
     ]
     
     import random
@@ -143,30 +111,24 @@ async def handle_other_messages(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text(response)
 
 def main():
+    """Запускает бота"""
+    from telegram.ext import filters
+    
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     
     # Добавляем обработчики команд
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", start_command))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("clear", clear_command))
     
-    # Обработчик для текстовых сообщений (ИСПРАВЛЕНО)
+    # Обработчик для текстовых сообщений
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
     
-    # Обработчик для документов (ИСПРАВЛЕНО)
-    application.add_handler(MessageHandler(filters.ATTACHMENT & ~filters.COMMAND, handle_media))
-    
-    # Обработчик для медиа С подписями (ИСПРАВЛЕНО)
+    # Обработчик для медиафайлов (фото, видео, документы)
     application.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO) & filters.CAPTION & ~filters.COMMAND, 
-        handle_media_with_caption
-    ))
-    
-    # Обработчик для медиа БЕЗ подписей (ИСПРАВЛЕНО)
-    application.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO) & ~filters.CAPTION & ~filters.COMMAND, 
-        handle_media_without_caption
+        filters.PHOTO | filters.VIDEO | filters.ATTACHMENT, 
+        handle_media_message
     ))
     
     # Обработчик для всего остального
